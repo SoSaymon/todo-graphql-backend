@@ -1,5 +1,7 @@
+from datetime import datetime
+
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
 
@@ -21,9 +23,10 @@ class User(Base):
 
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String, unique=True)
-    email = Column(String, unique=True)
-    password_hash = Column(String)
-    is_admin = Column(Boolean)
-    created_at = Column(DateTime)
-    # last_login = Column(DateTime)
+    username = Column(String, unique=True, nullable=False)
+    email = Column(String, unique=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    is_admin = Column(Boolean, default=0)
+    is_active = Column(Boolean, default=0)
+    created_at = Column(DateTime, default=datetime.now(), nullable=False)
+    last_login = Column(DateTime)
