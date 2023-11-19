@@ -3,6 +3,7 @@ from typing import Dict
 
 import requests
 from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from graphql import GraphQLError
 
 ph = PasswordHasher()
@@ -19,6 +20,29 @@ def hash_password(password: str) -> str:
         str: The hashed password.
     """
     return ph.hash(password)
+
+
+def verify_password(password_hash: str, password: str) -> None:
+    """
+    Verifies if the given password matches the hashed password.
+
+    The function uses the Argon2 algorithm to verify if the hashed password matches the given password.
+    If the passwords do not match, the function raises a GraphQLError.
+
+    Args:
+        password_hash (str): The hashed password.
+        password (str): The password to verify.
+
+    Returns:
+        None
+
+    Raises:
+        GraphQLError: If the passwords do not match.
+    """
+    try:
+        ph.verify(password_hash, password)
+    except VerifyMismatchError:
+        raise GraphQLError("Invalid email or password")
 
 
 def is_password_safe(password: str) -> bool:
@@ -88,6 +112,7 @@ def check_if_hash_is_present(hash_output: str, password_hash: str) -> bool:
         if key_with_prefix == password_hash.upper():
             if value > MAX_NUMBER_OF_PASSWORD_APPEARANCES:
                 return True
+    return False
 
 
 def split_hashes(hash_output: str) -> Dict[str, int]:
