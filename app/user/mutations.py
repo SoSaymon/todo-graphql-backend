@@ -1,12 +1,13 @@
 from datetime import datetime
 from typing import Type, Optional
 
-from graphene import Mutation, String, Field
+from graphene import Mutation, String, Field, Int
 from graphql import GraphQLError
 
 from app.db.database import Session
 from app.db.models import User
 from app.gql.types import UserObject
+from app.utils.decorators import logged_in
 from app.utils.email import is_valid_email
 from app.utils.jwt import generate_jwt, regenerate_jwt
 from app.utils.password import is_password_safe, hash_password, verify_password
@@ -70,7 +71,9 @@ class RegisterUser(Mutation):
 
         password_hash = hash_password(password)
 
-        user = User(username=username, email=email, password_hash=password_hash)
+        user = User(
+            username=username, email=email, password_hash=password_hash, is_active=True
+        )  # TODO: Remove is_active when email confirmation will be implemented
 
         session.add(user)
         session.commit()
@@ -145,6 +148,79 @@ class LoginUser(Mutation):
         session.close()
 
         return LoginUser(token=token)
+
+
+class UpdateUser(Mutation):
+    class Arguments:
+        user_id = Int(required=True)
+        username = String()
+        email = String()
+        password = String()
+
+    user = Field(UserObject)
+
+    @staticmethod
+    @logged_in
+    def mutate(
+        root,
+        info,
+        user_id: int,
+        username: Optional[str] = None,
+        email: Optional[str] = None,
+        password: Optional[str] = None,
+    ) -> Type["UpdateUser"]:
+        user_token = get_authenticated_user(info.context)
+
+        if user_token:
+            user: User = user_token[0]
+        else:
+            raise GraphQLError("Cannot authenticate user")
+
+        session = Session()
+
+        if user_id:
+            changed_user = session.query(User).filter(user_id == User.id).first()
+
+            if not changed_user:
+                raise GraphQLError(f"User with id: {user_id} not found")
+
+            if (user_id == user.id) or user.is_admin is True:
+                if username:
+                    is_taken = (
+                        session.query(User).filter(username == User.username).first()
+                    )
+
+                    if is_taken:
+                        raise GraphQLError(
+                            f"This username: {username} is already taken"
+                        )
+
+                    changed_user.username = username
+                if email:
+                    if is_valid_email(email):
+                        is_taken = (
+                            session.query(User).filter(email == User.email).first()
+                        )
+
+                        if is_taken:
+                            raise GraphQLError(f"This email: {email} is already taken")
+
+                        changed_user.email = email
+                if password:
+                    if is_password_safe(password):
+                        pw_hash = hash_password(password)
+                        changed_user.password_hash = pw_hash
+                    else:
+                        raise GraphQLError("Your password is to weak")
+
+                session.commit()
+                session.refresh(changed_user)
+                session.close()
+
+                return UpdateUser(user=changed_user)
+
+            elif (user_id != user.id) and user.is_admin is False:
+                raise GraphQLError("You are not authorized to perform this action")
 
 
 class RegenerateJWT(Mutation):
