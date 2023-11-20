@@ -104,6 +104,7 @@ class LoginUser(Mutation):
         password = String(required=True)
 
     token = String()
+    user = Field(UserObject)
 
     @staticmethod
     def mutate(root, info, password: str, email: str) -> Type["LoginUser"]:
@@ -121,7 +122,7 @@ class LoginUser(Mutation):
             email (str): The email of the user trying to log in.
 
         Returns:
-            LoginUser: A LoginUser object with the generated JWT token.
+            LoginUser: A LoginUser object with the generated JWT token and UserObject.
 
         Raises:
             GraphQLError: If the email or password is invalid.
@@ -147,7 +148,7 @@ class LoginUser(Mutation):
         session.refresh(user)
         session.close()
 
-        return LoginUser(token=token)
+        return LoginUser(token=token, user=user)
 
 
 class UpdateUser(Mutation):
@@ -239,6 +240,7 @@ class RegenerateJWT(Mutation):
     """
 
     token = String()
+    user = Field(UserObject)
 
     @staticmethod
     def mutate(root, info) -> Type["RegenerateJWT"]:
@@ -262,4 +264,4 @@ class RegenerateJWT(Mutation):
         user, token = get_authenticated_user(info.context)
         token = regenerate_jwt(token)
 
-        return RegenerateJWT(token=token)
+        return RegenerateJWT(token=token, user=user)
