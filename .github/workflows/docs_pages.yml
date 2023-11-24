@@ -1,0 +1,51 @@
+name: docs_pages_workflow
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build_docs:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.12
+          architecture: x64
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+
+      - name: Install dependencies
+        run: |
+          poetry install
+
+      - name: Build docs
+        run: |
+          make -C docs clean
+          make -C docs html
+
+      - name: Init new repo in docs folder and commit generated docs
+        run: |
+          cd docs/_build/html
+          git init
+          touch .nojekyll
+          git add -A
+          git config --local user.name "${GITHUB_ACTOR}"
+          git config --local user.email "action@github.com"
+          git commit -m "Deploy docs"
+
+      - name: Push docs to gh-pages branch
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: gh-pages
+          force: true
+          directory: ./docs/_build/html
